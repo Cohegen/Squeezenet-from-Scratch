@@ -1,5 +1,9 @@
 # SqueezeNet from Scratch
 
+An implementation of the SqueezeNet convolutional neural network architecture from scratch using PyTorch.
+
+## Project Structure
+
 * **data_setup.py**: Contains code responsible for downloading the dataset, preprocessing it, and loading it into PyTorch DataLoaders.
 * **engine.py**: Contains the training and evaluation loops.
 * **models.py**: Contains the implementation of the SqueezeNet architecture.
@@ -11,13 +15,13 @@
 
 The success of AlexNet in the 2012 ImageNet competition sparked a surge of interest in deep learning for computer vision. Researchers began exploring increasingly sophisticated neural network architectures, and it was observed that deeper networks often achieved better performance on challenging visual recognition tasks.
 
-This led to the development of architectures such as GoogLeNet, ResNet, and DenseNet, which significantly improved image classification accuracy. While these architectures achieved remarkable results, deploying large neural networks on resource-constrained devices remained a challenge. Embedded systems, mobile devices, FPGAs, and ASICs often have limited memory capacity, power budgets, and computational resources compared to large data-center servers.
+This led to the development of architectures such as GoogLeNet, ResNet, and DenseNet, which significantly improved image classification accuracy. While these architectures achieved remarkable results, deploying large neural networks on resource-constrained devices remained a challenge. Embedded systems, mobile devices, FPGAs, and ASICs often have limited memory capacity, power budgets, and computational resources compared to data-center servers.
 
 The creators of SqueezeNet sought to address this problem by asking a simple but important question:
 
 > Can a much smaller neural network achieve accuracy comparable to AlexNet while using significantly fewer parameters?
 
-Their answer was **SqueezeNet**, a convolutional neural network designed to drastically reduce model size without sacrificing much accuracy. Remarkably, SqueezeNet achieved AlexNet-level accuracy while using approximately **50 times fewer parameters**. Furthermore, when combined with model compression techniques, the network could be stored in less than **0.5 MB** of memory.
+Their answer was **SqueezeNet**, a convolutional neural network designed to drastically reduce model size without sacrificing much accuracy. Remarkably, SqueezeNet achieved AlexNet-level accuracy while using approximately **50× fewer parameters**. When combined with model compression techniques, the network could be stored in less than **0.5 MB** of memory.
 
 Reducing model size offers several practical advantages:
 
@@ -31,7 +35,7 @@ Reducing model size offers several practical advantages:
 
 # Understanding the Bandwidth Problem
 
-One motivation behind SqueezeNet is reducing bandwidth requirements.
+One of the motivations behind SqueezeNet is reducing bandwidth requirements.
 
 Consider two hypothetical models:
 
@@ -62,19 +66,9 @@ The SqueezeNet architecture is based on three key design strategies.
 
 ## 1. Replace 3×3 Convolutions with 1×1 Convolutions
 
-A standard 3×3 convolution contains nine weights per input-output channel connection:
+A 3×3 convolution contains 9 weights per input-output channel connection, while a 1×1 convolution contains only 1 weight.
 
-[
-3 \times 3 = 9
-]
-
-In contrast, a 1×1 convolution contains only one weight:
-
-[
-1 \times 1 = 1
-]
-
-As a result, a 1×1 convolution requires approximately nine times fewer parameters than a 3×3 convolution.
+This means that replacing a 3×3 convolution with a 1×1 convolution can reduce the number of parameters by approximately 9×.
 
 Whenever possible, SqueezeNet replaces expensive 3×3 convolutions with more parameter-efficient 1×1 convolutions.
 
@@ -113,21 +107,23 @@ A Fire Module consists of three main components:
 The architecture can be visualized as:
 
 ```text
-                Input
-                  │
-                  ▼
-          1×1 Squeeze Layer
-                  │
-        ┌─────────┴─────────┐
-        ▼                   ▼
-   1×1 Expand         3×3 Expand
-        │                   │
-        └─────────┬─────────┘
-                  ▼
-            Concatenation
-                  │
-                  ▼
-                Output
+                    Input
+                      |
+                      v
+              1×1 Squeeze Layer
+                      |
+            +---------+---------+
+            |                   |
+            v                   v
+      1×1 Expand          3×3 Expand
+            |                   |
+            +---------+---------+
+                      |
+                      v
+                Concatenate
+                      |
+                      v
+                    Output
 ```
 
 The squeeze layer first reduces the channel count. The resulting feature maps are then processed by two parallel expand branches:
@@ -192,7 +188,7 @@ class FireModule(nn.Module):
             nn.ReLU()
         )
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x):
         x = self.squeeze_layer(x)
 
         x1 = self.expand_layer1x1(x)
@@ -201,55 +197,117 @@ class FireModule(nn.Module):
         return torch.cat([x1, x3], dim=1)
 ```
 
-**Note:** This implementation differs slightly from the original SqueezeNet paper because it includes **Batch Normalization** layers after each convolution. Batch Normalization can improve training stability and convergence speed, but it was not part of the original architecture proposed by the SqueezeNet authors.
+> **Note:** The implementation in this repository includes Batch Normalization layers after each convolution. These layers were added to improve training stability and convergence speed. The original SqueezeNet architecture proposed in the paper did not include Batch Normalization.
 
-In the `forward()` method, the outputs from the 1×1 expand branch and the 3×3 expand branch are concatenated along the channel dimension using:
+In the `forward()` method, the outputs from the 1×1 expand branch and the 3×3 expand branch are concatenated using:
 
 ```python
 torch.cat([x1, x3], dim=1)
 ```
 
-This operation combines features learned by both branches, allowing the network to benefit from the strengths of each convolution type.
+The concatenation occurs along the channel dimension (`dim=1`), allowing the network to combine features learned by both branches into a single output tensor.
 
 ---
 
 # Why the Fire Module Saves Parameters
 
-Consider a conventional convolution:
+Consider a standard convolution layer:
 
 ```text
 256 Input Channels
-        │
-        ▼
- 256 Output Channels
-     3×3 Conv
+        |
+        v
+256 Output Channels
+      3×3 Conv
 ```
 
 The parameter count would be:
 
-[
-256 \times 256 \times 3 \times 3
-================================
-
-589,824
-]
-
-parameters.
+```text
+256 × 256 × 3 × 3
+= 589,824 parameters
+```
 
 Now consider a Fire Module:
 
 ```text
 256 Channels
-      │
-      ▼
+      |
+      v
 32-Channel Squeeze Layer
-      │
-      ▼
+      |
+      v
 Expand Layers
 ```
 
-Because the expensive 3×3 convolutions operate on only 32 channels instead of 256 channels, the parameter count is dramatically reduced.
+Because the expensive 3×3 convolutions operate on only 32 channels instead of 256 channels, the number of parameters is dramatically reduced.
 
 This parameter efficiency is one of the primary reasons why SqueezeNet achieves competitive accuracy while maintaining a very small model size.
 
 ---
+
+# SqueezeNet Architecture
+
+The complete SqueezeNet architecture is composed of:
+
+1. An initial convolution layer.
+2. Multiple stacked Fire Modules.
+3. Periodic max-pooling layers.
+4. A final convolution layer.
+5. Global Average Pooling.
+6. A softmax classifier.
+
+A simplified view is shown below:
+
+```text
+Input
+  |
+  v
+Initial Convolution
+  |
+  v
+Fire Module 2
+  |
+  v
+Fire Module 3
+  |
+  v
+Fire Module 4
+  |
+  v
+Max Pooling
+  |
+  v
+Fire Module 5
+  |
+  v
+Fire Module 6
+  |
+  v
+Fire Module 7
+  |
+  v
+Fire Module 8
+  |
+  v
+Max Pooling
+  |
+  v
+Fire Module 9
+  |
+  v
+Final Convolution
+  |
+  v
+Global Average Pooling
+  |
+  v
+Softmax
+```
+
+The majority of the network's representational power comes from the stacked Fire Modules, which enable parameter-efficient feature extraction.
+
+---
+
+
+
