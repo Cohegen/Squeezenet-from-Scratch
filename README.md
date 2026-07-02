@@ -309,6 +309,7 @@ Softmax
 
 The majority of the network's representational power comes from the stacked Fire Modules, which enable parameter-efficient feature extraction.
 
+![pic](https://github.com/Cohegen/Squeezenet-from-Scratch/blob/main/assets/squeezenet.png)
 ---
 
 
