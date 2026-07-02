@@ -126,6 +126,8 @@ The architecture can be visualized as:
                     Output
 ```
 
+![pic](https://github.com/Cohegen/Squeezenet-from-Scratch/blob/main/assets/firemodule.png)
+
 The squeeze layer first reduces the channel count. The resulting feature maps are then processed by two parallel expand branches:
 
 * One branch uses 1×1 convolutions.
