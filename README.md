@@ -312,5 +312,7 @@ The majority of the network's representational power comes from the stacked Fire
 ![pic](https://github.com/Cohegen/Squeezenet-from-Scratch/blob/main/assets/squeezenet.png)
 ---
 
+## Dataset
+- CIFAR10 dataset was used to train this model 
 
 
